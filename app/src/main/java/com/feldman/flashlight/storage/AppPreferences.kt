@@ -20,6 +20,8 @@ object PrefKeys {
     val DEFAULT_LIGHT_SOURCE_MODE = stringPreferencesKey("default_light_source_mode")
     val SHOW_TILE_INFO = booleanPreferencesKey("show_tile_info")
     val OPEN_FULL_PAGES = booleanPreferencesKey("open_full_pages")
+    val AUTO_OFF_TIMER_MINUTES = intPreferencesKey("auto_off_timer_minutes")
+    val SCREEN_LIGHT_COLOR_ARGB = intPreferencesKey("screen_light_color_argb")
 }
 
 fun Context.orientationModeFlow(): Flow<OrientationMode> =
@@ -87,4 +89,18 @@ fun Context.openFullPagesFlow(): Flow<Boolean> =
 
 suspend fun Context.setOpenFullPages(enabled: Boolean) {
     dataStore.edit { it[PrefKeys.OPEN_FULL_PAGES] = enabled }
+}
+
+fun Context.autoOffTimerMinutesFlow(): Flow<Int> =
+    dataStore.data.map { prefs -> prefs[PrefKeys.AUTO_OFF_TIMER_MINUTES] ?: 0 }
+
+suspend fun Context.setAutoOffTimerMinutes(minutes: Int) {
+    dataStore.edit { it[PrefKeys.AUTO_OFF_TIMER_MINUTES] = minutes.coerceAtLeast(0) }
+}
+
+fun Context.screenLightColorArgbFlow(): Flow<Int> =
+    dataStore.data.map { prefs -> prefs[PrefKeys.SCREEN_LIGHT_COLOR_ARGB] ?: 0xFFFFFFFF.toInt() }
+
+suspend fun Context.setScreenLightColorArgb(argb: Int) {
+    dataStore.edit { it[PrefKeys.SCREEN_LIGHT_COLOR_ARGB] = argb }
 }

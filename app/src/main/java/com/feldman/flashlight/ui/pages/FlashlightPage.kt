@@ -48,12 +48,17 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.material3.toShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -68,8 +73,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.feldman.flashlight.ui.navigation.appDestinations
 import com.feldman.motion.MotionNavFlow
 import com.feldman.flashlight.storage.autoFlashlightOffFlow
+import com.feldman.flashlight.storage.autoOffTimerMinutesFlow
 import com.feldman.flashlight.storage.defaultFlashlightLevelFlow
 import com.feldman.flashlight.storage.instantFlashlightFlow
+import com.feldman.flashlight.storage.screenLightColorArgbFlow
 import com.feldman.flashlight.ui.components.AppTopBar
 import com.feldman.flashlight.ui.components.SensorCard
 import com.feldman.flashlight.ui.components.SettingsAction
@@ -90,6 +97,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.BorderStroke
@@ -99,6 +108,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import android.view.KeyEvent
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.WindowCompat
 import com.feldman.flashlight.storage.volumeButtonsFlashlightFlow
 import com.feldman.flashlight.R
 
@@ -158,6 +168,10 @@ fun FlashlightPage(
     val activity = context as? Activity
 
     val defaultMode by context.defaultLightSourceModeFlow().collectAsState(initial = null)
+    val autoOffTimerMinutes by context.autoOffTimerMinutesFlow().collectAsState(initial = 0)
+    val screenLightColorArgb by context.screenLightColorArgbFlow().collectAsState(initial = 0xFFFFFFFF.toInt())
+    val torchLevel by FlashlightController.torchLevel.collectAsState()
+    val signalPatternActive by signalPatternActiveFlow.collectAsState()
     var userSelectedMode by rememberSaveable { mutableStateOf<String?>(null) }
     val lightMode = userSelectedMode?.let { LightSourceMode.fromKey(it) } ?: defaultMode ?: LightSourceMode.FLASH
 
@@ -166,8 +180,55 @@ fun FlashlightPage(
 
     var screenPatternActive by remember { mutableStateOf(false) }
     var screenPatternLightState by remember { mutableStateOf(false) }
+    var timerCancelledForSession by remember { mutableStateOf(false) }
+    var timerSecondsRemaining by remember { mutableStateOf<Int?>(null) }
 
     val isScreenActive = isScreenLightOn && (lightMode == LightSourceMode.SCREEN || lightMode == LightSourceMode.BOTH)
+    val screenLightColor = Color(screenLightColorArgb)
+    val screenContentColor = if (screenLightColor.luminance() > 0.4f) Color(0xFF1E2022) else Color.White
+    val anyLightActive = torchLevel > 0 || isScreenLightOn || screenPatternActive || signalPatternActive
+
+    DisposableEffect(isScreenActive, screenPatternActive, screenPatternLightState, screenLightColor) {
+        val window = activity?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
+        val oldLightStatusBars = controller?.isAppearanceLightStatusBars
+        val oldLightNavigationBars = controller?.isAppearanceLightNavigationBars
+        val lightBackground = (isScreenActive || (screenPatternActive && screenPatternLightState)) &&
+            screenLightColor.luminance() > 0.4f
+
+        controller?.isAppearanceLightStatusBars = lightBackground
+        controller?.isAppearanceLightNavigationBars = lightBackground
+
+        onDispose {
+            if (oldLightStatusBars != null) controller.isAppearanceLightStatusBars = oldLightStatusBars
+            if (oldLightNavigationBars != null) controller.isAppearanceLightNavigationBars = oldLightNavigationBars
+        }
+    }
+
+    LaunchedEffect(anyLightActive, autoOffTimerMinutes, timerCancelledForSession) {
+        if (!anyLightActive) {
+            timerCancelledForSession = false
+            timerSecondsRemaining = null
+            return@LaunchedEffect
+        }
+        if (autoOffTimerMinutes <= 0 || timerCancelledForSession) {
+            timerSecondsRemaining = null
+            return@LaunchedEffect
+        }
+
+        var seconds = autoOffTimerMinutes * 60
+        timerSecondsRemaining = seconds
+        while (seconds > 0) {
+            delay(1_000)
+            seconds -= 1
+            timerSecondsRemaining = seconds
+        }
+        stopBlinking(context) { screenPatternLightState = it }
+        FlashlightController.setIntensity(context, 0)
+        isScreenLightOn = false
+        screenPatternActive = false
+        timerSecondsRemaining = null
+    }
 
     // Dynamically manage Window Screen Brightness & Keep Screen On in real-time
     DisposableEffect(isScreenActive, screenBrightnessPercent, screenPatternActive, screenPatternLightState) {
@@ -199,8 +260,8 @@ fun FlashlightPage(
     }
 
     val pageBgColor = when {
-        screenPatternActive -> if (screenPatternLightState) Color.White else Color(0xFF101010)
-        isScreenActive -> Color.White
+        screenPatternActive -> if (screenPatternLightState) screenLightColor else Color(0xFF101010)
+        isScreenActive -> screenLightColor
         else -> Color.Transparent
     }
 
@@ -218,11 +279,11 @@ fun FlashlightPage(
                 if (!isLandscape && !screenPatternActive) {
                     AppTopBar(
                         title = "Flashlight",
-                        titleColor = if (isScreenActive) Color(0xFF1E2022) else null,
+                        titleColor = if (isScreenActive) screenContentColor else null,
                         actions = {
                             SettingsAction(
                                 onClick = onOpenSettings,
-                                tint = if (isScreenActive) Color(0xFF1E2022) else null
+                                tint = if (isScreenActive) screenContentColor else null
                             )
                         }
                     )
@@ -256,6 +317,12 @@ fun FlashlightPage(
                     onScreenPatternLightState = { isLight ->
                         screenPatternLightState = isLight
                     },
+                    timerSecondsRemaining = timerSecondsRemaining,
+                    onCancelTimer = {
+                        timerCancelledForSession = true
+                        timerSecondsRemaining = null
+                    },
+                    screenContentColor = screenContentColor,
                     onOpenSettings = onOpenSettings,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -266,6 +333,7 @@ fun FlashlightPage(
         if (screenPatternActive) {
             ScreenPatternOverlay(
                 isLightState = screenPatternLightState,
+                lightColor = screenLightColor,
                 onStop = {
                     stopBlinking(context) { screenPatternLightState = it }
                     screenPatternActive = false
@@ -282,6 +350,7 @@ fun FlashlightPage(
 @Composable
 fun ScreenPatternOverlay(
     isLightState: Boolean,
+    lightColor: Color = Color.White,
     onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -303,12 +372,16 @@ fun ScreenPatternOverlay(
         }
     }
 
-    val bgColor = if (isLightState) Color.White else Color(0xFF101010)
+    val bgColor = if (isLightState) lightColor else Color(0xFF101010)
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
+            .semantics {
+                contentDescription = "Signal pattern active. Tap to stop."
+                role = Role.Button
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -342,6 +415,54 @@ fun ScreenPatternOverlay(
     }
 }
 
+@Composable
+private fun TorchStatusBanner(message: String, isError: Boolean) {
+    Surface(
+        color = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)
+        )
+    }
+}
+
+@Composable
+private fun AutoOffCountdownBar(seconds: Int, onCancel: () -> Unit) {
+    val minutes = seconds / 60
+    val remainingSeconds = seconds % 60
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .padding(start = 18.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Turns off in %d:%02d".format(minutes, remainingSeconds),
+                style = MaterialTheme.typography.labelLarge
+            )
+            TextButton(
+                onClick = onCancel,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            ) {
+                Text("Cancel")
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun FlashlightContent(
@@ -353,14 +474,21 @@ private fun FlashlightContent(
     onScreenBrightnessChange: (Float) -> Unit,
     onStartScreenPattern: () -> Unit,
     onScreenPatternLightState: (Boolean) -> Unit,
+    timerSecondsRemaining: Int?,
+    onCancelTimer: () -> Unit,
+    screenContentColor: Color,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    FlashlightController.startListening(context)
-    val maxLevel = remember { FlashlightController.getMaxLevel(context) }
+    DisposableEffect(context) {
+        val stopListening = FlashlightController.startListening(context)
+        onDispose(stopListening)
+    }
+    val torchStatus by FlashlightController.status.collectAsState()
+    val maxLevel = remember(torchStatus.hasFlash) { FlashlightController.getMaxLevel(context) }
     val luminance = rememberAmbientLuminance(context)
 
     val autoFlashlightOff by context.autoFlashlightOffFlow().collectAsState(initial = true)
@@ -369,6 +497,12 @@ private fun FlashlightContent(
 
     val level by FlashlightController.torchLevel.collectAsState()
     val isOn = level > 0
+
+    LaunchedEffect(torchStatus.hasFlash) {
+        if (!torchStatus.hasFlash && lightMode != LightSourceMode.SCREEN) {
+            onLightModeChange(LightSourceMode.SCREEN)
+        }
+    }
 
     DisposableEffect(lifecycleOwner, autoFlashlightOff) {
         val observer = LifecycleEventObserver { _, event ->
@@ -491,12 +625,12 @@ private fun FlashlightContent(
             ) {
                 AppTopBar(
                     title = "Flashlight",
-                    titleColor = if (isScreenActive) Color(0xFF1E2022) else null,
+                    titleColor = if (isScreenActive) screenContentColor else null,
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     actions = {
                         SettingsAction(
                             onClick = onOpenSettings,
-                            tint = if (isScreenActive) Color(0xFF1E2022) else null
+                            tint = if (isScreenActive) screenContentColor else null
                         )
                     }
                 )
@@ -508,6 +642,7 @@ private fun FlashlightContent(
                     LightSourceMode.entries.forEachIndexed { index, mode ->
                         SegmentedButton(
                             selected = lightMode == mode,
+                            enabled = mode == LightSourceMode.SCREEN || torchStatus.hasFlash,
                             onClick = {
                                 onLightModeChange(mode)
                                 if (mode == LightSourceMode.SCREEN && level > 0) {
@@ -530,6 +665,14 @@ private fun FlashlightContent(
                             }
                         )
                     }
+                }
+
+                torchStatus.message?.let { message ->
+                    TorchStatusBanner(message = message, isError = torchStatus.hasFlash)
+                }
+
+                timerSecondsRemaining?.let { seconds ->
+                    AutoOffCountdownBar(seconds = seconds, onCancel = onCancelTimer)
                 }
 
                 // 2. Sensor Info Cards
@@ -666,6 +809,7 @@ private fun FlashlightContent(
                 LightSourceMode.entries.forEachIndexed { index, mode ->
                     SegmentedButton(
                         selected = lightMode == mode,
+                        enabled = mode == LightSourceMode.SCREEN || torchStatus.hasFlash,
                         onClick = {
                             onLightModeChange(mode)
                             if (mode == LightSourceMode.SCREEN && level > 0) {
@@ -688,6 +832,14 @@ private fun FlashlightContent(
                         }
                     )
                 }
+            }
+
+            torchStatus.message?.let { message ->
+                TorchStatusBanner(message = message, isError = torchStatus.hasFlash)
+            }
+
+            timerSecondsRemaining?.let { seconds ->
+                AutoOffCountdownBar(seconds = seconds, onCancel = onCancelTimer)
             }
 
             // 2. Sensor Info Cards
@@ -1610,6 +1762,9 @@ private val MORSE_CODE_MAP = mapOf(
     '5' to ".....", '6' to "-....", '7' to "--...", '8' to "---..", '9' to "----."
 )
 
+private val _signalPatternActive = MutableStateFlow(false)
+private val signalPatternActiveFlow = _signalPatternActive.asStateFlow()
+
 fun startMorse(
     context: Context,
     message: String,
@@ -1620,7 +1775,8 @@ fun startMorse(
     onScreenState: (Boolean) -> Unit = {}
 ) {
     blinkJob?.cancel()
-    blinkJob = CoroutineScope(Dispatchers.Default).launch {
+    _signalPatternActive.value = true
+    val job = CoroutineScope(Dispatchers.Default).launch {
         val dot = (1200 / wpm).toLong()
         val dash = dot * 3
         val gap = dot
@@ -1689,6 +1845,10 @@ fun startMorse(
             onScreenState(false)
         }
     }
+    blinkJob = job
+    job.invokeOnCompletion {
+        if (blinkJob === job) _signalPatternActive.value = false
+    }
 }
 
 private var blinkJob: Job? = null
@@ -1701,7 +1861,8 @@ fun startBlinking(
     onScreenState: (Boolean) -> Unit = {}
 ) {
     blinkJob?.cancel()
-    blinkJob = CoroutineScope(Dispatchers.Default).launch {
+    _signalPatternActive.value = true
+    val job = CoroutineScope(Dispatchers.Default).launch {
         var isOn = true
         while (isActive) {
             val interval = intervalState.value.toInt()
@@ -1717,11 +1878,16 @@ fun startBlinking(
             delay(interval.toLong())
         }
     }
+    blinkJob = job
+    job.invokeOnCompletion {
+        if (blinkJob === job) _signalPatternActive.value = false
+    }
 }
 
 fun stopBlinking(context: Context? = null, onScreenState: ((Boolean) -> Unit)? = null) {
     blinkJob?.cancel()
     blinkJob = null
+    _signalPatternActive.value = false
     context?.let { FlashlightController.setIntensity(it, 0) }
     onScreenState?.invoke(false)
 }

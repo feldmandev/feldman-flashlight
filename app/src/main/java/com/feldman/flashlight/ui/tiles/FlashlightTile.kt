@@ -47,54 +47,116 @@ class FlashlightTile : ComponentActivity() {
     }
 }
 object FlashlightController {
+    data class TorchStatus(
+        val hasFlash: Boolean = true,
+        val available: Boolean = true,
+        val message: String? = null
+    )
+
     private val _torchLevel = MutableStateFlow(0)
     val torchLevel: StateFlow<Int> = _torchLevel.asStateFlow()
+    private val _status = MutableStateFlow(TorchStatus())
+    val status: StateFlow<TorchStatus> = _status.asStateFlow()
 
-    fun startListening(context: Context) {
+    fun startListening(context: Context): () -> Unit {
         val camMgr = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        camMgr.registerTorchCallback(object : CameraManager.TorchCallback() {
+        val callback = object : CameraManager.TorchCallback() {
             override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
+                _status.value = TorchStatus()
                 if (!enabled) {
                     _torchLevel.value = 0
+                } else if (_torchLevel.value == 0) {
+                    _torchLevel.value = 1
                 }
             }
 
             override fun onTorchStrengthLevelChanged(cameraId: String, level: Int) {
+                _status.value = TorchStatus()
                 _torchLevel.value = level
             }
-        }, null)
+
+            override fun onTorchModeUnavailable(cameraId: String) {
+                _status.value = TorchStatus(
+                    available = false,
+                    message = "Flash is temporarily unavailable. Close any camera app and try again."
+                )
+            }
+        }
+        if (cameraId(context) == null) {
+            _status.value = TorchStatus(
+                hasFlash = false,
+                available = false,
+                message = "No rear flash was found. Screen light is still available."
+            )
+            return {}
+        }
+        return try {
+            camMgr.registerTorchCallback(callback, null)
+            val unregister: () -> Unit = {
+                try {
+                    camMgr.unregisterTorchCallback(callback)
+                } catch (_: Exception) {
+                    // The camera service may already be gone during teardown.
+                }
+            }
+            unregister
+        } catch (_: Exception) {
+            _status.value = TorchStatus(
+                available = false,
+                message = "Flash is temporarily unavailable. Close any camera app and try again."
+            )
+            val noOp: () -> Unit = {}
+            noOp
+        }
     }
 
     private fun cameraId(context: Context): String? {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        return cm.cameraIdList.firstOrNull {
-            cm.getCameraCharacteristics(it)
-                .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-        }
+        return runCatching {
+            cm.cameraIdList.firstOrNull {
+                cm.getCameraCharacteristics(it)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull()
     }
 
     fun getMaxLevel(context: Context): Int {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val id = cameraId(context) ?: return 1
-        return cm.getCameraCharacteristics(id)
-            .get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) ?: 1
+        return runCatching {
+            cm.getCameraCharacteristics(id)
+                .get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) ?: 1
+        }.getOrDefault(1)
     }
 
     /** level: 0 = off. On API < 33, any level > 0 turns torch on (no strength control). */
-    fun setIntensity(context: Context, level: Int) {
-        _torchLevel.value = level
-
+    fun setIntensity(context: Context, level: Int): Boolean {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val id = cameraId(context) ?: return
-        try {
+        val id = cameraId(context) ?: run {
+            _status.value = TorchStatus(
+                hasFlash = false,
+                available = false,
+                message = "No rear flash was found. Screen light is still available."
+            )
+            return false
+        }
+        return try {
             if (level <= 0) cm.setTorchMode(id, false)
             else cm.turnOnTorchWithStrengthLevel(id, level)
-        } catch (e: Exception) {
-            e.printStackTrace()
+            _torchLevel.value = level
+            _status.value = TorchStatus()
+            true
+        } catch (_: Exception) {
+            _status.value = TorchStatus(
+                available = false,
+                message = "Flash is temporarily unavailable. Close any camera app and try again."
+            )
+            false
         }
     }
 
     fun handleVolumeKey(context: Context, keyCode: Int): Boolean {
+        if (!_status.value.hasFlash || !_status.value.available) return false
         val maxLevel = getMaxLevel(context)
         val currentLevel = _torchLevel.value
         val step = maxOf(1, (maxLevel * 0.1f).toInt())
@@ -236,25 +298,35 @@ class FlashlightTileService : TileService() {
             }
 
             override fun onTorchModeUnavailable(cameraId: String) {
-                updateTileState(false)
+                updateTileUnavailable()
             }
         }
 
-        cameraManager?.registerTorchCallback(torchCallback!!, null)
-
-        // Initialize tile state from current torch mode (if available)
-        val id = cameraManager?.cameraIdList?.firstOrNull {
-            cameraManager?.getCameraCharacteristics(it)
-                ?.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+        val id = runCatching {
+            cameraManager?.cameraIdList?.firstOrNull {
+                cameraManager?.getCameraCharacteristics(it)
+                    ?.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull()
+        if (id == null) {
+            updateTileUnavailable()
+            return
         }
-        val torchOn = id?.let {
+
+        runCatching { cameraManager?.registerTorchCallback(torchCallback!!, null) }
+            .onFailure {
+                updateTileUnavailable()
+                return
+            }
+
+        val torchOn = id.let {
             // Query system torch mode via callback (API >= 33)
             try {
                 (cameraManager?.getTorchStrengthLevel(it) ?: 0) > 0
             } catch (_: Exception) {
                 false
             }
-        } ?: false
+        }
 
         updateTileState(torchOn)
     }
@@ -262,16 +334,24 @@ class FlashlightTileService : TileService() {
     override fun onClick() {
         super.onClick()
         val cm = cameraManager ?: getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val id = cm.cameraIdList.firstOrNull {
-            cm.getCameraCharacteristics(it)
-                .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-        } ?: return
+        val id = runCatching {
+            cm.cameraIdList.firstOrNull {
+                cm.getCameraCharacteristics(it)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull() ?: run {
+            updateTileUnavailable()
+            return
+        }
 
         // Toggle actual torch state
         val newState = !currentTorchOn
-        cm.setTorchMode(id, newState)
-        currentTorchOn = newState
-        updateTileState(newState)
+        runCatching { cm.setTorchMode(id, newState) }
+            .onSuccess {
+                currentTorchOn = newState
+                updateTileState(newState)
+            }
+            .onFailure { updateTileUnavailable() }
     }
 
     override fun onStopListening() {
@@ -288,6 +368,17 @@ class FlashlightTileService : TileService() {
             }
             label = "Flashlight"
             state = if (isOn) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            updateTile()
+        }
+    }
+
+    private fun updateTileUnavailable() {
+        qsTile?.apply {
+            if (icon == null) {
+                icon = Icon.createWithResource(this@FlashlightTileService, R.drawable.ic_flashlight)
+            }
+            label = "Flashlight"
+            state = Tile.STATE_UNAVAILABLE
             updateTile()
         }
     }

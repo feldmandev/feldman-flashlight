@@ -14,6 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -49,7 +51,7 @@ fun TorchSlider(
             if (newLevel != level) applyLevel(newLevel)
         },
         valueRange = 0f..maxLevel.toFloat(),
-        modifier = modifier,
+        modifier = modifier.semantics { contentDescription = "Brightness level" },
         interactionSource = interactionSource,
         colors = colors,
         thumb = {

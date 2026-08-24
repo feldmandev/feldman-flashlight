@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -45,7 +47,10 @@ fun RowScope.SensorCard(
     Card(
         modifier = modifier
             .weight(1f)
-            .aspectRatio(1f),
+            .aspectRatio(1f)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$label: $value"
+            },
         colors = CardDefaults.cardColors(containerColor = color),
         shape = RoundedCornerShape(cornerRadius),
         border = border

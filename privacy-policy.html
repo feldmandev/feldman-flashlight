@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#d7e3ff">
+  <title>Feldman Flashlight Privacy Policy</title>
+  <style>
+    :root {
+      --md-sys-color-primary: #315da8;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #d7e3ff;
+      --md-sys-color-on-primary-container: #001b3f;
+      --md-sys-color-secondary-container: #dce2f1;
+      --md-sys-color-on-secondary-container: #151b29;
+      --md-sys-color-surface: #f9f9ff;
+      --md-sys-color-surface-container: #ededf5;
+      --md-sys-color-surface-container-high: #e7e7ef;
+      --md-sys-color-on-surface: #1a1b20;
+      --md-sys-color-on-surface-variant: #44474f;
+      --md-sys-color-outline: #74777f;
+      --md-sys-color-inverse-surface: #2f3036;
+      --md-sys-color-inverse-on-surface: #f1f0f7;
+      --md-sys-shape-small: 12px;
+      --md-sys-shape-medium: 20px;
+      --md-sys-shape-large: 32px;
+      --md-sys-shape-extra-large: 48px;
+      --content-width: 920px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --md-sys-color-primary: #aac7ff;
+        --md-sys-color-on-primary: #002f67;
+        --md-sys-color-primary-container: #174683;
+        --md-sys-color-on-primary-container: #d7e3ff;
+        --md-sys-color-secondary-container: #414753;
+        --md-sys-color-on-secondary-container: #dce2f1;
+        --md-sys-color-surface: #121318;
+        --md-sys-color-surface-container: #1e1f25;
+        --md-sys-color-surface-container-high: #292a30;
+        --md-sys-color-on-surface: #e3e2e9;
+        --md-sys-color-on-surface-variant: #c4c6d0;
+        --md-sys-color-outline: #8e9099;
+        --md-sys-color-inverse-surface: #e3e2e9;
+        --md-sys-color-inverse-on-surface: #2f3036;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+    a { color: var(--md-sys-color-primary); font-weight: 650; }
+    a:focus-visible, .skip-link:focus-visible {
+      outline: 3px solid var(--md-sys-color-primary);
+      outline-offset: 4px;
+      border-radius: var(--md-sys-shape-small);
+    }
+    .skip-link {
+      position: absolute;
+      top: -80px;
+      left: 16px;
+      z-index: 2;
+      padding: 12px 18px;
+      color: var(--md-sys-color-inverse-on-surface);
+      background: var(--md-sys-color-inverse-surface);
+      border-radius: var(--md-sys-shape-medium);
+    }
+    .skip-link:focus { top: 16px; }
+    header, main, footer {
+      width: min(calc(100% - 32px), var(--content-width));
+      margin-inline: auto;
+    }
+    header { padding-block: clamp(48px, 10vw, 108px) 32px; }
+    .eyebrow {
+      display: inline-flex;
+      min-height: 40px;
+      align-items: center;
+      padding-inline: 18px;
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border-radius: var(--md-sys-shape-large);
+      font-size: .8rem;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 780px;
+      margin: 24px 0 12px;
+      font-size: clamp(2.75rem, 9vw, 6.4rem);
+      line-height: .95;
+      letter-spacing: -.055em;
+    }
+    .lede {
+      max-width: 700px;
+      margin: 0;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: clamp(1.08rem, 2.5vw, 1.35rem);
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-block: 24px 48px;
+    }
+    .summary div {
+      padding: 22px;
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      border-radius: var(--md-sys-shape-large);
+    }
+    .summary strong { display: block; font-size: 1.05rem; }
+    .summary span { color: var(--md-sys-color-on-surface-variant); }
+    article {
+      margin-bottom: 16px;
+      padding: clamp(24px, 5vw, 44px);
+      background: var(--md-sys-color-surface-container);
+      border-radius: var(--md-sys-shape-extra-large);
+    }
+    article:nth-of-type(even) { background: var(--md-sys-color-surface-container-high); }
+    h2 { margin: 0 0 10px; font-size: clamp(1.55rem, 4vw, 2.2rem); line-height: 1.15; }
+    h3 { margin: 24px 0 6px; font-size: 1.1rem; }
+    p, ul { margin-block: 8px 0; }
+    ul { padding-left: 1.3rem; }
+    footer {
+      padding-block: 32px 56px;
+      color: var(--md-sys-color-on-surface-variant);
+      text-align: center;
+    }
+    @media (max-width: 680px) {
+      .summary { grid-template-columns: 1fr; }
+      article { border-radius: var(--md-sys-shape-large); }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#policy">Skip to privacy policy</a>
+  <header>
+    <span class="eyebrow">Privacy policy</span>
+    <h1>Bright utility.<br>Private by design.</h1>
+    <p class="lede">Feldman Flashlight works on your device. It does not require an account, show ads, or send personal data to Feldman.</p>
+  </header>
+
+  <main id="policy">
+    <section class="summary" aria-label="Privacy summary">
+      <div><strong>No personal data collected</strong><span>No account, analytics, advertising, or tracking.</span></div>
+      <div><strong>No network transmission</strong><span>Your flashlight activity stays on your device.</span></div>
+      <div><strong>Local preferences only</strong><span>Settings remain until you clear app data or uninstall.</span></div>
+    </section>
+
+    <article aria-labelledby="scope-heading">
+      <h2 id="scope-heading">Who this policy covers</h2>
+      <p>This policy applies to Feldman Flashlight, published by Feldman. It explains what the app accesses, what it stores, and the choices available to you. Effective August 24, 2026.</p>
+    </article>
+
+    <article aria-labelledby="collection-heading">
+      <h2 id="collection-heading">Data collection and sharing</h2>
+      <p>Feldman Flashlight does not collect, transmit, sell, or share personal or sensitive user data. The app does not include advertising, analytics, user accounts, or behavioral tracking.</p>
+      <p>Because the app does not collect personal data, Feldman does not retain personal data on a server and has no personal server-side profile to delete.</p>
+    </article>
+
+    <article aria-labelledby="device-heading">
+      <h2 id="device-heading">On-device access</h2>
+      <h3>Camera flash</h3>
+      <p>The app uses Android's camera system service only to control the device's flash hardware and read whether that hardware is available. It does not capture, store, or transmit photos, video, or audio.</p>
+      <h3>Ambient light sensor</h3>
+      <p>If your device provides an ambient light sensor, its current reading is processed temporarily to show luminance in the interface. Readings are not saved or transmitted.</p>
+      <h3>Quick Settings</h3>
+      <p>The app can ask Android to add its flashlight tile. Android handles that request, and the tile only controls the flashlight and opens the app's tile settings.</p>
+    </article>
+
+    <article aria-labelledby="storage-heading">
+      <h2 id="storage-heading">Local settings, retention, and deletion</h2>
+      <p>Preferences such as theme, brightness, light source, screen-light color, automatic shutoff, and tile behavior are stored locally in Android app storage.</p>
+      <p>They remain until you change them, clear Feldman Flashlight's storage, or uninstall the app. Android may include these preferences in device backup and restore if backup is enabled in your system settings. Feldman cannot access those backups.</p>
+    </article>
+
+    <article aria-labelledby="security-heading">
+      <h2 id="security-heading">Security and third-party code</h2>
+      <p>The app relies on Android platform services and open-source interface libraries. It does not use third-party advertising or analytics SDKs. Local settings are protected by Android's app sandbox and are not intentionally exposed to other apps.</p>
+    </article>
+
+    <article aria-labelledby="children-heading">
+      <h2 id="children-heading">Children's privacy</h2>
+      <p>Feldman Flashlight is a general-audience utility and does not knowingly collect personal information from children or anyone else.</p>
+    </article>
+
+    <article aria-labelledby="changes-heading">
+      <h2 id="changes-heading">Changes and contact</h2>
+      <p>If the app's data practices change, this policy will be updated before those practices take effect, and the effective date will be revised.</p>
+      <p>Questions or privacy requests can be submitted through the project's <a href="https://github.com/feldmandev/feldman-flashlight/issues">GitHub issue tracker</a>. The app source is available in the <a href="https://github.com/feldmandev/feldman-flashlight">Feldman Flashlight repository</a>.</p>
+    </article>
+  </main>
+
+  <footer>Feldman Flashlight · Effective August 24, 2026</footer>
+</body>
+</html>
