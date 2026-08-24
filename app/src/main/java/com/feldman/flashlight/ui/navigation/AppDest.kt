@@ -8,7 +8,10 @@ import com.feldman.flashlight.ui.pages.FlashlightPage
 import com.feldman.flashlight.ui.pages.SettingsPage
 import com.feldman.flashlight.ui.pages.settings.AppearanceSettingsPage
 import com.feldman.flashlight.ui.pages.settings.FlashlightSettingsPage
+import com.feldman.flashlight.ui.pages.settings.ScreenColorSheet
 import com.feldman.flashlight.ui.pages.settings.TileSettingsPage
+import com.feldman.motion.MotionBottomSheetBackdropScope
+import com.feldman.motion.MotionBottomSheetEffects
 import com.feldman.motion.MotionDest
 import com.feldman.motion.MotionNavigator
 import com.feldman.motion.MotionPaneType
@@ -169,7 +172,46 @@ sealed class AppDest : MotionDest {
             searchQuery: String,
             onFabAction: ((() -> Unit) -> Unit) -> Unit
         ) {
-            FlashlightSettingsPage(onBack = onBack)
+            FlashlightSettingsPage(
+                onBack = onBack,
+                onOpenScreenColor = { onNavigate(ScreenColorPicker) }
+            )
+        }
+    }
+
+    @Serializable
+    @Parcelize
+    data object ScreenColorPicker : AppDest() {
+        @IgnoredOnParcel
+        @Transient
+        override val label = "Screen color"
+
+        @IgnoredOnParcel
+        @Transient
+        override val parent = FlashlightSettings
+
+        @IgnoredOnParcel
+        @Transient
+        override val pane = MotionPaneType.BOTTOM_SHEET
+
+        @IgnoredOnParcel
+        @Transient
+        override val showNavigation = false
+
+        @IgnoredOnParcel
+        @Transient
+        override val bottomSheetEffects = MotionBottomSheetEffects(
+            backdropScope = MotionBottomSheetBackdropScope.PANE
+        )
+
+        @Composable
+        override fun Content(
+            onNavigate: MotionNavigator,
+            onBack: () -> Unit,
+            searchQuery: String,
+            onFabAction: ((() -> Unit) -> Unit) -> Unit
+        ) {
+            ScreenColorSheet(onBack = onBack)
         }
     }
 
@@ -218,5 +260,6 @@ val appDestinations: List<AppDest> = listOf(
     AppDest.Settings,
     AppDest.Appearance,
     AppDest.FlashlightSettings,
+    AppDest.ScreenColorPicker,
     AppDest.TileSettings
 )

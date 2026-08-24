@@ -49,6 +49,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.material3.toShape
 import androidx.compose.ui.graphics.Shape
@@ -322,6 +323,7 @@ fun FlashlightPage(
                         timerCancelledForSession = true
                         timerSecondsRemaining = null
                     },
+                    screenLightColor = screenLightColor,
                     screenContentColor = screenContentColor,
                     onOpenSettings = onOpenSettings,
                     modifier = Modifier.fillMaxSize()
@@ -476,6 +478,7 @@ private fun FlashlightContent(
     onScreenPatternLightState: (Boolean) -> Unit,
     timerSecondsRemaining: Int?,
     onCancelTimer: () -> Unit,
+    screenLightColor: Color,
     screenContentColor: Color,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -540,11 +543,16 @@ private fun FlashlightContent(
 
     val isScreenActive = isScreenLightOn && (lightMode == LightSourceMode.SCREEN || lightMode == LightSourceMode.BOTH)
 
-    // Dynamic light styling for pure white flashlight mode
-    val cardColor = if (isScreenActive) Color(0xFFF7F8FA) else MaterialTheme.colorScheme.surfaceContainer
-    val cardValueColor = if (isScreenActive) Color(0xFF1E2022) else MaterialTheme.colorScheme.onSurface
-    val cardLabelColor = if (isScreenActive) Color(0xFF60646C) else MaterialTheme.colorScheme.onSurfaceVariant
-    val cardBorder = if (isScreenActive) BorderStroke(1.dp, Color(0xFFE5E8EB)) else null
+    val contrastBlend = if (screenLightColor.luminance() > 0.4f) 0.08f else 0.14f
+    val screenContainerColor = lerp(screenLightColor, screenContentColor, contrastBlend)
+    val screenStrongContainerColor = lerp(screenLightColor, screenContentColor, contrastBlend * 1.65f)
+    val screenSubtleContainerColor = lerp(screenLightColor, screenContentColor, contrastBlend * 0.55f)
+    val screenMutedContentColor = screenContentColor.copy(alpha = 0.72f)
+    val screenOutlineColor = screenContentColor.copy(alpha = 0.16f)
+    val cardColor = if (isScreenActive) screenContainerColor else MaterialTheme.colorScheme.surfaceContainer
+    val cardValueColor = if (isScreenActive) screenContentColor else MaterialTheme.colorScheme.onSurface
+    val cardLabelColor = if (isScreenActive) screenMutedContentColor else MaterialTheme.colorScheme.onSurfaceVariant
+    val cardBorder = if (isScreenActive) BorderStroke(1.dp, screenOutlineColor) else null
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == ORIENTATION_LANDSCAPE
@@ -586,12 +594,12 @@ private fun FlashlightContent(
 
     val segmentColors = if (isScreenActive) {
         SegmentedButtonDefaults.colors(
-            activeContainerColor = Color.White,
-            activeContentColor = Color(0xFF1E2022),
-            inactiveContainerColor = Color(0xFFF2F4F7),
-            inactiveContentColor = Color(0xFF666B73),
-            activeBorderColor = Color(0xFFCFD4DC),
-            inactiveBorderColor = Color(0xFFE2E4E8)
+            activeContainerColor = screenStrongContainerColor,
+            activeContentColor = screenContentColor,
+            inactiveContainerColor = screenSubtleContainerColor,
+            inactiveContentColor = screenMutedContentColor,
+            activeBorderColor = screenOutlineColor,
+            inactiveBorderColor = screenOutlineColor
         )
     } else {
         SegmentedButtonDefaults.colors()
@@ -599,9 +607,9 @@ private fun FlashlightContent(
 
     val sliderColors = if (isScreenActive) {
         SliderDefaults.colors(
-            activeTrackColor = Color(0xFFDCDFE4),
-            inactiveTrackColor = Color(0xFFF2F4F7),
-            thumbColor = Color(0xFF33373D)
+            activeTrackColor = screenStrongContainerColor,
+            inactiveTrackColor = screenSubtleContainerColor,
+            thumbColor = screenContentColor
         )
     } else {
         SliderDefaults.colors()
@@ -655,7 +663,7 @@ private fun FlashlightContent(
                             ),
                             colors = segmentColors,
                             border = SegmentedButtonDefaults.borderStroke(
-                                color = if (isScreenActive) (if (lightMode == mode) Color(0xFFCFD4DC) else Color(0xFFE2E4E8)) else MaterialTheme.colorScheme.outline
+                                color = if (isScreenActive) screenOutlineColor else MaterialTheme.colorScheme.outline
                             ),
                             label = {
                                 Text(
@@ -774,7 +782,9 @@ private fun FlashlightContent(
                         fallbackHalf = ::fallbackHalf,
                         buttonHeight = presetBtnHeight,
                         spacing = btnSpacing,
-                        isScreenActive = isScreenActive
+                        isScreenActive = isScreenActive,
+                        screenContainerColor = screenContainerColor,
+                        screenContentColor = screenContentColor
                     )
                 }
 
@@ -787,7 +797,9 @@ private fun FlashlightContent(
                         onSos = { showSosDialog = true },
                         buttonHeight = flashBtnHeight,
                         spacing = btnSpacing,
-                        isScreenActive = isScreenActive
+                        isScreenActive = isScreenActive,
+                        screenContainerColor = screenStrongContainerColor,
+                        screenContentColor = screenContentColor
                     )
                 }
             }
@@ -822,7 +834,7 @@ private fun FlashlightContent(
                         ),
                         colors = segmentColors,
                         border = SegmentedButtonDefaults.borderStroke(
-                            color = if (isScreenActive) (if (lightMode == mode) Color(0xFFCFD4DC) else Color(0xFFE2E4E8)) else MaterialTheme.colorScheme.outline
+                            color = if (isScreenActive) screenOutlineColor else MaterialTheme.colorScheme.outline
                         ),
                         label = {
                             Text(
@@ -915,7 +927,9 @@ private fun FlashlightContent(
                         fallbackHalf = ::fallbackHalf,
                         buttonHeight = presetBtnHeight,
                         spacing = btnSpacing,
-                        isScreenActive = isScreenActive
+                        isScreenActive = isScreenActive,
+                        screenContainerColor = screenContainerColor,
+                        screenContentColor = screenContentColor
                     )
                 }
 
@@ -929,7 +943,9 @@ private fun FlashlightContent(
                         onSos = { showSosDialog = true },
                         buttonHeight = flashBtnHeight,
                         spacing = btnSpacing,
-                        isScreenActive = isScreenActive
+                        isScreenActive = isScreenActive,
+                        screenContainerColor = screenStrongContainerColor,
+                        screenContentColor = screenContentColor
                     )
                 }
             }
@@ -1033,13 +1049,15 @@ private fun FlashModeColumn(
     modifier: Modifier = Modifier,
     buttonHeight: Dp = 64.dp,
     spacing: Dp = 8.dp,
-    isScreenActive: Boolean = false
+    isScreenActive: Boolean = false,
+    screenContainerColor: Color = Color(0xFFF2F4F7),
+    screenContentColor: Color = Color(0xFF1E2022)
 ) {
     val motionLevel = rememberMotionLevel()
     val defaultState = if (isScreenActive) {
         MotionButtonDefaults.default(motionLevel).copy(
-            backgroundColor = Color(0xFFF2F4F7),
-            contentColor = Color(0xFF1E2022),
+            backgroundColor = screenContainerColor,
+            contentColor = screenContentColor,
             fontAxes = FontAxes(weight = 600, width = 125f)
         )
     } else {
@@ -1904,13 +1922,15 @@ fun PresetButtonColumn(
     modifier: Modifier = Modifier,
     buttonHeight: Dp = 46.dp,
     spacing: Dp = 8.dp,
-    isScreenActive: Boolean = false
+    isScreenActive: Boolean = false,
+    screenContainerColor: Color = Color(0xFFF2F4F7),
+    screenContentColor: Color = Color(0xFF1E2022)
 ) {
     val motionLevel = rememberMotionLevel()
     val defaultState = if (isScreenActive) {
         MotionButtonDefaults.default(motionLevel).copy(
-            backgroundColor = Color(0xFFF2F4F7),
-            contentColor = Color(0xFF1E2022),
+            backgroundColor = screenContainerColor,
+            contentColor = screenContentColor,
             fontAxes = FontAxes(weight = 600, width = 125f)
         )
     } else {
