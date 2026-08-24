@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/pages.yml"
       - "docs/**"
+      - "fonts/**"
       - "privacy-policy.html"
       - "LICENSE"
   workflow_dispatch:
@@ -32,6 +33,7 @@ jobs:
         run: |
           mkdir -p _site
           cp -R docs/. _site/
+          cp -R fonts _site/fonts
           cp privacy-policy.html _site/privacy-policy.html
           cp LICENSE _site/LICENSE.txt
       - name: Configure Pages
